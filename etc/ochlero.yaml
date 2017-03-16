@@ -1,0 +1,16 @@
+mqtt:
+  host: localhost
+  port: 1883
+  auth:
+    username: mqtt
+    password: ttqm
+watchers:
+  - unit: nodepool
+    topic: nodepool
+    events:
+      - pattern: "${TIME} ${UNIT}: ${MESSAGE}"
+        where:
+          TIME: _SYSLOGTIME_
+          UNIT: /w+
+          MESSAGE: /w+
+        publish: '{"time": "${TIME}", "message": "${MESSAGE}"}' 
