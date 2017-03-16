@@ -15,14 +15,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import argparse
 import logging
 import os
 import re
 import sys
 
-import systemd
+from systemd import journal as systemd_journal
 import paho.mqtt.publish as mqtt_publish
-# import yaml
+import yaml
 
 # import datetime
 # import time
@@ -35,12 +36,13 @@ LOGGER.setLevel(logging.DEBUG)
 
 # TODO add predefined regexps for convenience
 PREDEFINED_TYPES = {
-    "_SYSLOGTIME_": "",
-    "_IPv4_": "",
-    "_EMAIL_": "",
-    "_LOGLEVEL_": "",
+    "_SYSLOGTIMESTAMP_": "[A-Z][a-z]+\s+\d+\s\d+:\d+:\d+",
+    "_IPv4_": ("(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}"
+               "(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"),
+    "_EMAIL_": "([a-z0-9_\.-]+)@([\da-z\.-]+)\.([a-z\.]{2,6})",
     "_ALPHANUMERIC_": "\w+",
     "_INT_": "[0-9]+",
+    "_URL_": "(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?",
 }
 
 
@@ -106,54 +108,111 @@ class Event(object):
 
 
 class Watcher(object):
-    def __init__(self, unit, topic, publisher, events):
+    def __init__(self, unit, comm, topic, publisher, events):
         self.unit = unit
         self.topic = topic
+        self.comm = comm
         self.publisher = publisher
         self.events = events
         # Create a systemd.journal.Reader instance
-        self.journal = systemd.journal.Reader()
+        self.journal = systemd_journal.Reader()
         # Set the reader's default log level
-        self.journal.log_level(systemd.journal.LOG_INFO)
+        self.journal.log_level(systemd_journal.LOG_INFO)
         # Only include entries since the current box has booted.
         self.journal.this_boot()
         self.journal.this_machine()
         # Filter log entries
-        self.journal.add_match(_SYSTEMD_UNIT=self.unit)
+        filter = {}
+        if self.unit:
+            filter['_SYSTEMD_UNIT'] = self.unit
+        if self.comm:
+            filter['_COMM'] = self.comm
+        self.journal.add_match(**filter)
         # Move to the end of the journal
         self.journal.seek_tail()
         # Important! - Discard old journal entries
         self.journal.get_previous()
 
     def watch(self):
-        if self.journal.process() == systemd.journal.APPEND:
+        LOGGER.debug("Watching for unit '%s', comm '%s'" % (self.unit,
+                                                            self.comm))
+        if self.journal.process() == systemd_journal.APPEND:
             for entry in self.journal:
+                LOGGER.debug("New event: %s" % entry['MESSAGE'])
                 for event in self.events:
-                    scan = event.scan(entry)
+                    scan = event.scan(entry['MESSAGE'])
                     if scan:
+                        msg = "Event '%s' matched into '%s'" % (event.name,
+                                                                scan)
+                        LOGGER.debug(msg)
                         self.publisher.publish(self.topic, scan)
 
 
 def main():
     console = logging.StreamHandler()
-    console.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     console.setFormatter(formatter)
     LOGGER.addHandler(console)
 
+    parser = argparse.ArgumentParser(description="ochlero")
+    parser.add_argument('--config-file', '-c', metavar='/PATH/TO/CONF',
+                        help='The path to the configuration file to use.')
+    parser.add_argument('--verbose', '-v', default=False, action='store_true',
+                        help='Run in debug mode')
+
+    args = parser.parse_args()
+    if args.verbose:
+        console.setLevel(logging.DEBUG)
+    else:
+        console.setLevel(logging.INFO)
+    if not args.config_file:
+        sys.exit('Please provide a config file with option -c.')
+    if not os.path.isfile(args.config_file):
+        sys.exit('%s not found.' % args.config_file)
+    with open(args.config_file, 'r') as raw_conf:
+        conf = yaml.load(raw_conf)
+    if 'mqtt' not in conf:
+        sys.exit('MQTT configuration missing in %s' % args.config_file)
+
+    LOGGER.debug(
+        'Creating MQTT publisher on %s:%s' % (conf['mqtt']['host'],
+                                              conf['mqtt']['port']))
+    publisher = Publisher(conf['mqtt']['host'],
+                          port=conf['mqtt']['port'],
+                          auth_dict=conf['mqtt'].get('auth'))
+
     LOGGER.info('Starting the watch...')
     p = select.poll()
     watchers = []
-    # INIT WATCHERS
+    for watcher in conf.get('watchers'):
+        msg = "Adding watcher: unit '%s', comm '%s'"
+        msg = msg % (watcher.get('unit', 'N/A'),
+                     watcher.get('comm', 'N/A'))
+        LOGGER.debug(msg)
+        events = []
+        e_id = 0
+        for event in watcher['events']:
+            name = event.get('name', 'event%03d' % e_id)
+            e = Event(name,
+                      event['pattern'],
+                      event.get('where', {}),
+                      event['publish'])
+            LOGGER.debug(' |_ Adding event %s' % name)
+            events.append(e)
+            e_id += 1
+        w = Watcher(watcher.get('unit'), watcher.get('comm'),
+                    watcher['topic'], publisher, events)
+        watchers.append(w)
     for watcher in watchers:
         fd = watcher.journal.fileno()
         poll_event_mask = watcher.journal.get_events()
         p.register(fd, poll_event_mask)
     while True:
         try:
-            # check every 250ms
-            if p.poll(250):
+            # check every 100ms
+            if p.poll(100):
+                LOGGER.debug("The journal was updated, checking...")
                 for watcher in watchers:
                     watcher.watch()
         except KeyboardInterrupt:

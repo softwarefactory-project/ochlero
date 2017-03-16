@@ -5,12 +5,12 @@ mqtt:
     username: mqtt
     password: ttqm
 watchers:
-  - unit: nodepool
-    topic: nodepool
+  - unit: unit.service
+    comm: process_name
+    topic: my_cool_topic
     events:
-      - pattern: "${TIME} ${UNIT}: ${MESSAGE}"
+      - name: pattern1
+        pattern: "${MESSAGE}"
         where:
-          TIME: _SYSLOGTIME_
-          UNIT: /w+
-          MESSAGE: /w+
-        publish: '{"time": "${TIME}", "message": "${MESSAGE}"}' 
+          MESSAGE: _ALPHANUMERIC_
+        publish: '{"message": "${MESSAGE}"}' 
