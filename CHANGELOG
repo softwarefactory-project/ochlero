@@ -1,6 +1,8 @@
 CHANGES
 =======
 
+* Fix unicode handling or lack thereof with python 2.7
+
 0.1.1
 -----
 * Fix pbr min version

@@ -145,7 +145,12 @@ class Watcher(object):
                         msg = "Event '%s' matched into '%s'" % (event.name,
                                                                 scan)
                         LOGGER.debug(msg)
-                        self.publisher.publish(self.topic, scan)
+                        try:
+                            self.publisher.publish(self.topic, scan)
+                        except TypeError:
+                            # happens with python 2.7
+                            self.publisher.publish(self.topic,
+                                                   scan.encode('utf8'))
 
 
 def main():
