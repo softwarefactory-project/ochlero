@@ -1,6 +1,9 @@
 CHANGES
 =======
 
+* Add macro system for published messages
+  First available macro is _EPOCH_, which will be automatically
+  replaced by the Unix Epoch timestamp at the time of publishing.
 * Fix unicode handling or lack thereof with python 2.7
 
 0.1.1

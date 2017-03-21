@@ -17,6 +17,8 @@
 
 from unittest import TestCase
 
+from mock import patch
+
 from ochlero import ochlero
 
 
@@ -34,6 +36,18 @@ class TestPredefinedTypeMapper(TestCase):
         sample = "aaa _INT_ bbb _ALPHANUMERIC_ ccc _INT_"
         self.assertEqual("aaa [0-9]+ bbb \w+ ccc [0-9]+",
                          ochlero.map_predefined_types(sample))
+
+
+class TestPredefinedMacroMapper(TestCase):
+    def test_mapper(self):
+        """Test mapping of predefined macros"""
+        sample = "aaa"
+        self.assertEqual(sample, ochlero.map_predefined_macros(sample))
+        sample = "aaa _EPOCH_"
+        with patch("time.time") as t:
+            t.return_value = 123456
+            self.assertEqual("aaa 123456",
+                             ochlero.map_predefined_macros(sample))
 
 
 class TestEvent(TestCase):
