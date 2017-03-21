@@ -26,7 +26,7 @@ import paho.mqtt.publish as mqtt_publish
 import yaml
 
 # import datetime
-# import time
+import time
 import select
 
 
@@ -46,11 +46,49 @@ PREDEFINED_TYPES = {
 }
 
 
-def map_predefined_types(substitute):
+class MessageMacro(object):
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def __str__(self):
+        raise NotImplementedError
+
+
+class UnicodeMacro(str, MessageMacro):
+    def __call__(self, *args, **kwargs):
+        return self
+
+
+class EpochMacro(str, MessageMacro):
+    def __call__(self, *args, **kwargs):
+        return str(int(time.time()))
+
+    def __str__(self):
+        return self()
+
+
+PREDEFINED_MACROS = {
+    "_EPOCH_": EpochMacro(),
+}
+
+
+def _map_predefined(_map, substitute):
     mapped = substitute
-    for t, r in PREDEFINED_TYPES.items():
-        mapped = mapped.replace(t, r)
+    for t, r in _map.items():
+        try:
+            _r = r()
+        except TypeError:
+            _r = r
+        mapped = mapped.replace(t, _r)
     return mapped
+
+
+def map_predefined_types(substitute):
+    return _map_predefined(PREDEFINED_TYPES, substitute)
+
+
+def map_predefined_macros(msg):
+    return _map_predefined(PREDEFINED_MACROS, msg)
 
 
 class Publisher(object):
@@ -60,10 +98,12 @@ class Publisher(object):
         self.auth_dict = auth_dict
 
     def publish(self, topic, message):
-        mqtt_publish.single(topic, payload=message,
+        msg = map_predefined_macros(message)
+        mqtt_publish.single(topic, payload=msg,
                             hostname=self.hostname, port=self.port,
                             client_id="ochlero/%i" % os.getpid(),
                             auth=self.auth_dict)
+        LOGGER.debug("'''%s''' published to topic %s" % (msg, topic))
 
 
 class Event(object):

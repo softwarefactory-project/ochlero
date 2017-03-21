@@ -13,4 +13,4 @@ watchers:
         pattern: "${MESSAGE}"
         where:
           MESSAGE: _ALPHANUMERIC_
-        publish: '{"message": "${MESSAGE}"}' 
+        publish: '{"time": "_EPOCH_", "message": "${MESSAGE}"}' 

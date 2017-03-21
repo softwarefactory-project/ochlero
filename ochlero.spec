@@ -2,7 +2,7 @@
 
 Name:           ochlero
 Version: 0.1.1.2.gb75d33a
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        %{sum}
 
 License:        ASL 2.0
@@ -19,6 +19,7 @@ Buildrequires:  python2-devel
 Buildrequires:  python-setuptools
 Buildrequires:  python2-pbr
 Buildrequires:  python-nose
+Buildrequires:	python-mock
 Buildrequires:  git
 Buildrequires:	systemd-python
 Buildrequires:	PyYAML
@@ -46,5 +47,8 @@ nosetests -v
 %{_bindir}/*
 
 %changelog
+* Tue Mar 21 2017 Matthieu Huin <mhuin@redhat.com> - 0.1.1-2
+- Add mock to build dependencies
+
 * Mon Mar 20 2017 Matthieu Huin <mhuin@redhat.com> - 0.1.1-1
 - Initial package
