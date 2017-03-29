@@ -2,7 +2,7 @@
 
 Name:           ochlero
 Version: 0.1.1.2.gb75d33a
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        %{sum}
 
 License:        ASL 2.0
@@ -38,15 +38,38 @@ git init
 
 %install
 %{__python2} setup.py install --skip-build --root %{buildroot}
+install -p -D -m 644 ochlero.service %{buildroot}/%{_unitdir}/%{name}.service
+mkdir -p %{buildroot}/%{_sysconfdir}/
+install -p -D -m 644 etc/ochlero.yaml %{buildroot}/%{_sysconfdir}/%{name}/ochlero.yaml
 
 %check
 nosetests -v
 
+%pre
+getent group ochlero >/dev/null || groupadd -r ochlero
+getent passwd ochlero >/dev/null || \
+useradd -r -g ochlero -G ochlero -d /usr/bin/ochlero -s /sbin/nologin \
+-c "ochlero daemon" ochlero
+exit 0
+
+%post
+%systemd_post %{name}.service
+
+%preun
+%systemd_preun %{name}.service
+
+%postun
+%systemd_postun %{name}.service
+
 %files -n ochlero
 %{python2_sitelib}/*
 %{_bindir}/*
+%config(noreplace) %{_sysconfdir}/*
 
 %changelog
+* Wed Mar 29 2017 Matthieu Huin <mhuin@redhat.com> - 0.1.1-3
+- Add service
+
 * Tue Mar 21 2017 Matthieu Huin <mhuin@redhat.com> - 0.1.1-2
 - Add mock to build dependencies
 
