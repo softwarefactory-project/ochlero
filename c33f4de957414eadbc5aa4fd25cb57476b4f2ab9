@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3a6ff13c_a4ac2237",
+        "filename": "ochlero.service",
+        "patchSetId": 2
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 6
+      },
+      "writtenOn": "2017-03-29T14:26:52Z",
+      "side": 1,
+      "message": "could be nice to specify\nuser\u003dochlero\ngroup\u003dochlero",
+      "revId": "c33f4de957414eadbc5aa4fd25cb57476b4f2ab9",
+      "serverId": "6c1dc8ef-8b94-40e4-bd83-c2359d45ecc0",
+      "unresolved": false
+    }
+  ]
+}
