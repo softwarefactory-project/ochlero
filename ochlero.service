@@ -1,0 +1,13 @@
+[Unit]
+Description=Run Ochlero, the systemd-to-MQTT service
+After=syslog.target network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ochlero -c /etc/ochlero/ochlero.yaml
+Restart=always
+User=ochlero
+Group=ochlero
+
+[Install]
+WantedBy=multi-user.target
