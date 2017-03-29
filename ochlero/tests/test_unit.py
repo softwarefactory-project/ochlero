@@ -17,7 +17,7 @@
 
 from unittest import TestCase
 
-from mock import patch
+from mock import patch, Mock
 
 from ochlero import ochlero
 
@@ -85,3 +85,29 @@ class TestEvent(TestCase):
         self.assertEqual('hello ROFLCOPTER 42',
                          event.scan('abcd 42 ROFLCOPTER dcba'))
         self.assertEqual(None, event.scan('trolololo'))
+
+
+class TestWatcher(TestCase):
+    def test_watcher(self):
+        """Test watchers scanning journal events"""
+        mockPublisher = Mock()
+        events = [ochlero.Event('testEvent', 'abcd', {}, 'dcba'), ]
+        watcher = ochlero.Watcher('test_unit', None,
+                                  'test_topic', mockPublisher, events)
+        # TODO get a real entry dict
+        j_entry = {'MESSAGE': 'abcd', }
+        watcher.watch(j_entry)
+        self.assertTrue(not mockPublisher.publish.called)
+        j_entry['_SYSTEMD_UNIT'] = 'test_unit'
+        watcher.watch(j_entry)
+        mockPublisher.publish.assert_called_with('test_topic', 'dcba')
+        j_entry['_SYSTEMD_UNIT'] = None
+        j_entry['_COMM'] = 'test_comm'
+        watcher = ochlero.Watcher(None, 'test_comm',
+                                  'test_topic', mockPublisher, events)
+        watcher.watch(j_entry)
+        mockPublisher.publish.assert_called_with('test_topic', 'dcba')
+        j_entry['_COMM'] = None
+        j_entry['SYSLOG_IDENTIFIER'] = 'test_comm'
+        watcher.watch(j_entry)
+        mockPublisher.publish.assert_called_with('test_topic', 'dcba')

@@ -154,43 +154,35 @@ class Watcher(object):
         self.comm = comm
         self.publisher = publisher
         self.events = events
-        # Create a systemd.journal.Reader instance
-        self.journal = systemd_journal.Reader()
-        # Set the reader's default log level
-        self.journal.log_level(systemd_journal.LOG_INFO)
-        # Only include entries since the current box has booted.
-        self.journal.this_boot()
-        self.journal.this_machine()
-        # Filter log entries
-        filter = {}
-        if self.unit:
-            filter['_SYSTEMD_UNIT'] = self.unit
-        if self.comm:
-            filter['_COMM'] = self.comm
-        self.journal.add_match(**filter)
-        # Move to the end of the journal
-        self.journal.seek_tail()
-        # Important! - Discard old journal entries
-        self.journal.get_previous()
 
-    def watch(self):
+    def watch(self, entry):
         LOGGER.debug("Watching for unit '%s', comm '%s'" % (self.unit,
                                                             self.comm))
-        if self.journal.process() == systemd_journal.APPEND:
-            for entry in self.journal:
-                LOGGER.debug("New event: %s" % entry['MESSAGE'])
-                for event in self.events:
-                    scan = event.scan(entry['MESSAGE'])
-                    if scan:
-                        msg = "Event '%s' matched into '%s'" % (event.name,
-                                                                scan)
-                        LOGGER.debug(msg)
-                        try:
-                            self.publisher.publish(self.topic, scan)
-                        except TypeError:
-                            # happens with python 2.7
-                            self.publisher.publish(self.topic,
-                                                   scan.encode('utf8'))
+        if self.unit and self.unit != entry.get('_SYSTEMD_UNIT'):
+            msg = "event unit '%s' did not match unit '%s'"
+            LOGGER.debug(msg % (entry.get('_SYSTEMD_UNIT'), self.unit))
+            return
+        # command might appear as the syslog identifier
+        if (self.comm and self.comm != entry.get('_COMM')) and\
+           (self.comm and self.comm != entry.get('SYSLOG_IDENTIFIER')):
+            msg = "event command, syslog id '%s,%s' did not match comm '%s'"
+            LOGGER.debug(msg % (entry.get('_COMM'),
+                                entry.get('SYSLOG_IDENTIFIER'),
+                                self.comm))
+            return
+        LOGGER.debug("Event matches unit/command filter")
+        for event in self.events:
+            scan = event.scan(entry['MESSAGE'])
+            if scan:
+                msg = "Event '%s' matched into '%s'" % (event.name,
+                                                        scan)
+                LOGGER.debug(msg)
+                try:
+                    self.publisher.publish(self.topic, scan)
+                except TypeError:
+                    # happens with python 2.7
+                    self.publisher.publish(self.topic,
+                                           scan.encode('utf8'))
 
 
 def main():
@@ -229,6 +221,16 @@ def main():
 
     LOGGER.info('Starting the watch...')
     p = select.poll()
+    journal = systemd_journal.Reader()
+    # Set the reader's default log level
+    journal.log_level(systemd_journal.LOG_DEBUG)
+    # Only include entries since the current box has booted.
+    journal.this_boot()
+    journal.this_machine()
+    # Move to the end of the journal
+    journal.seek_tail()
+    # Important! - Discard old journal entries
+    journal.get_previous()
     watchers = []
     for watcher in conf.get('watchers'):
         msg = "Adding watcher: unit '%s', comm '%s'"
@@ -249,17 +251,18 @@ def main():
         w = Watcher(watcher.get('unit'), watcher.get('comm'),
                     watcher['topic'], publisher, events)
         watchers.append(w)
-    for watcher in watchers:
-        fd = watcher.journal.fileno()
-        poll_event_mask = watcher.journal.get_events()
-        p.register(fd, poll_event_mask)
-    while True:
+
+    fd = journal.fileno()
+    poll_event_mask = journal.get_events()
+    p.register(fd, poll_event_mask)
+    while p.poll():
         try:
-            # check every 100ms
-            if p.poll(100):
+            if journal.process() == systemd_journal.APPEND:
                 LOGGER.debug("The journal was updated, checking...")
-                for watcher in watchers:
-                    watcher.watch()
+                for entry in journal:
+                    LOGGER.debug("New event: %s" % entry['MESSAGE'])
+                    for watcher in watchers:
+                        watcher.watch(entry)
         except KeyboardInterrupt:
             LOGGER.info('Ctrl-C detected. Bye!')
             sys.exit('Manually stopped')
