@@ -50,6 +50,8 @@ getent group ochlero >/dev/null || groupadd -r ochlero
 getent passwd ochlero >/dev/null || \
 useradd -r -g ochlero -G ochlero -d /usr/bin/ochlero -s /sbin/nologin \
 -c "ochlero daemon" ochlero
+# allow ochlero to read the journal
+useradd -a -G systemd-journal ochlero
 exit 0
 
 %post
