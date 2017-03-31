@@ -2,7 +2,7 @@
 
 Name:           ochlero
 Version: 0.1.1.2.gb75d33a
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        %{sum}
 
 License:        ASL 2.0
@@ -51,7 +51,7 @@ getent passwd ochlero >/dev/null || \
 useradd -r -g ochlero -G ochlero -d /usr/bin/ochlero -s /sbin/nologin \
 -c "ochlero daemon" ochlero
 # allow ochlero to read the journal
-useradd -a -G systemd-journal ochlero
+usermod -a -G systemd-journal ochlero
 exit 0
 
 %post
@@ -70,6 +70,9 @@ exit 0
 %config(noreplace) %{_sysconfdir}/*
 
 %changelog
+* Fri Mar 31 2017 Matthieu Huin <mhuin@redhat.com> - 0.1.1-4
+- Allow service user to read journal
+
 * Wed Mar 29 2017 Matthieu Huin <mhuin@redhat.com> - 0.1.1-3
 - Add service
 
