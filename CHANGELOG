@@ -1,6 +1,10 @@
 CHANGES
 =======
 
+0.2.0
+-----
+* Improve event handling: only one journal, and do not lose
+  events due to poor implementation
 * Add macro system for published messages
   First available macro is _EPOCH_, which will be automatically
   replaced by the Unix Epoch timestamp at the time of publishing.
