@@ -226,7 +226,7 @@ def main():
     journal.log_level(systemd_journal.LOG_DEBUG)
     # Only include entries since the current box has booted.
     journal.this_boot()
-    journal.this_machine()
+    # journal.this_machine()
     # Move to the end of the journal
     journal.seek_tail()
     # Important! - Discard old journal entries
