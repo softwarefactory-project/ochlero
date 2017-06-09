@@ -1,0 +1,9 @@
+Code-Review+1: Tristan de Cacqueray <tdecacqu@redhat.com>
+Code-Review+2: Matthieu Huin <mhu@enovance.com>
+Workflow+1: Matthieu Huin <mhu@enovance.com>
+Verified+2: Jenkins CI <jenkins@softwarefactory-project.io>
+Submitted-by: Jenkins CI <jenkins@softwarefactory-project.io>
+Submitted-at: Fri, 09 Jun 2017 08:52:20 +0000
+Reviewed-on: https://softwarefactory-project.io/r/8450
+Project: software-factory/ochlero
+Branch: refs/heads/master
